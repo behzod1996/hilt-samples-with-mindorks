@@ -1,5 +1,6 @@
 package com.behzoddev.hilttutorialwithmindorks.utils
 
+import com.behzoddev.hilttutorialwithmindorks.database.User
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
@@ -7,7 +8,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.retryWhen
 import retrofit2.Response
 import java.io.IOException
-import java.lang.Exception
+
 
 val dispatcherIO = Dispatchers.IO
 suspend fun <T: Any> safeApiCall(
@@ -42,3 +43,18 @@ suspend fun <T: Any> safeApiCall(
         return@retryWhen true
     }.flowOn(dispatcherIO)
 }
+
+suspend fun <T: Any> getViewStateFlowForNetworkCall(IOOperation: suspend () -> Flow<NetworkResult<T>>) =
+    flow {
+        emit(Resource.OnLoading(true))
+        IOOperation().map {
+            when(it) {
+                is NetworkResult.OnSuccess -> Resource.OnSuccess(it.data)
+                is NetworkResult.OnFailure -> Resource.OnError(it.throwable)
+                is NetworkResult.OnLoading -> Resource.OnLoading(it.isLoading)
+            }
+        }.collect {
+            emit(it)
+        }
+        emit(Resource.OnLoading(false))
+    }.flowOn(dispatcherIO)
